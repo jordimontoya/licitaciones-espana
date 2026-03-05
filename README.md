@@ -1,6 +1,6 @@
 # 🇪🇸 Datos Abiertos de Contratación Pública - España
 
-Dataset completo de contratación pública española: nacional (PLACSP) + datos autonómicos (Andalucía, Catalunya, Euskadi, Galicia, Valencia, Madrid) + cruce europeo (TED) + Registro Mercantil (BORME).
+Dataset completo de contratación pública española: nacional (PLACSP) + datos autonómicos (Andalucía, Asturias, Catalunya, Euskadi, Galicia, Valencia, Madrid) + cruce europeo (TED) + Registro Mercantil (BORME).
 
 ## 📊 Resumen de Datos
 
@@ -14,9 +14,10 @@ Dataset completo de contratación pública española: nacional (PLACSP) + datos 
 | Madrid – Comunidad | 2.56M | 2017-2025 | 90 MB |
 | Madrid – Ayuntamiento | 119K | 2015-2025 | ~40 MB |
 | 🆕 Galicia | 1.7M | 2007-2026 | 36 MB |
+| 🆕 Asturias | 375K | 2019-2024 | 21 MB |
 | TED (España) | 591K | 2010-2025 | 57 MB |
 | 🆕 BORME (Registro Mercantil) | 9.2M empresas + 17M cargos | 2009-2026 | 750 MB |
-| **TOTAL** | **~44M + BORME** | **2000-2026** | **~2.3 GB** |
+| **TOTAL** | **~44.4M + BORME** | **2000-2026** | **~2.3 GB** |
 
 ---
 
@@ -37,6 +38,7 @@ Dataset completo de contratación pública española: nacional (PLACSP) + datos 
 | `comunidad_madrid.zip` | Contratación Comunidad de Madrid | ~90 MB |
 | `madrid_ayuntamiento.zip` | Actividad contractual Ayuntamiento de Madrid | ~40 MB |
 | `galicia.zip` | Contratación pública Xunta de Galicia (CM + LIC) | ~35 MB |
+| `asturias.zip` | Contratación centralizada Principado de Asturias | ~21 MB |
 | `borme.zip` | Registro Mercantil — actos mercantiles + cargos (anonimizado) | 750 MB |
 
 ### Cómo obtener los datos
@@ -642,6 +644,43 @@ El portal usa jQuery DataTables con server-side processing y dos endpoints separ
 
 ---
 
+## 🆕 Asturias
+
+Contratación centralizada del [Principado de Asturias](https://sede.asturias.es/), incluyendo contratos menores, servicios, obras y suministros de todos los organismos y entes públicos del Principado.
+
+| Métrica | Valor |
+|---------|-------|
+| Registros | 375,380 |
+| Período | 2019-2024 |
+| Columnas | 99 |
+| Tamaño | 21 MB |
+
+### Archivos
+
+```
+ccaa_asturias/
+└── asturias_contracts_ALL_YEARS.parquet   # 375K registros (21 MB, snappy)
+```
+
+### Campos principales (99 columnas)
+
+| Categoría | Campos |
+|-----------|--------|
+| Identificación | Nº INSCRIPCION, Nº EXPEDIENTE ORGANO, OBJETO |
+| Clasificación | CLASIFICACION GENERAL, CARACTERISTICAS CONTRATO, REGULACION |
+| Órgano | ENTE CONTRATANTE, ORGANO CONTRATANTE |
+| Importes | PRESUPUESTO, IMP. ADJ. (CON IVA), IMP. ADJ. IMPUESTO, IMP. ADJ. LOTE |
+| Proceso | PROC. ADJUDICACION, FORMA ADJUDICACION, T. TRAMITACION |
+| Adjudicación | CONTRATISTAS, NIF/CIF CONTRATISTA, RAZON SOCIAL CONTRATISTA, ADJUDICADOS A PYMES |
+| CPV | CODIGO CPV |
+| Fechas | F. DE ALTA, F. ADJ., F. FORMALIZACION, F. FIN EJECUCION |
+| Publicación | F. BOPA, F. BOE, F. DOUE |
+| Fondos europeos | CONTRATOS FINANCIADOS CON FONDOS EUROPEOS, TIPO DE FONDO EUROPEO |
+| Estrategia | CONT. ESTRAT. C. SOCIALES, C. MEDIOAMBIENTALES, C. DE I+D |
+| Recursos | OBJETO DE RECURSO ESPECIAL EN MATERIA DE CONTRATACION |
+
+---
+
 ## 📥 Uso
 
 ```python
@@ -691,6 +730,9 @@ df_cargos = pd.read_parquet('borme/data/borme_cargos_pub.parquet')
 
 # Galicia - Contratación completa (CM + LIC)
 df_gal = pd.read_parquet('galicia/contratos_galicia.parquet')
+
+# Asturias - Contratación centralizada
+df_ast = pd.read_parquet('ccaa_asturias/asturias_contracts_ALL_YEARS.parquet')
 ```
 
 ### Ejemplos de análisis
@@ -757,6 +799,17 @@ df_gal_cm.groupby('año')['importe'].sum().plot(kind='bar', title='Contratos men
 top = df_gal_cm.groupby('nif')['importe'].sum().sort_values(ascending=False)
 n_50 = (top.cumsum() / top.sum() <= 0.5).sum() + 1
 print(f"{n_50} adjudicatarios concentran el 50% del gasto en CM Galicia")
+
+# Asturias: gasto anual por tipo de contrato
+df_ast = pd.read_parquet('ccaa_asturias/asturias_contracts_ALL_YEARS.parquet')
+df_ast.groupby(['year', 'CARACTERISTICAS CONTRATO'])['IMP. ADJ. (CON IVA)'].sum().unstack().plot()
+
+# Asturias: top entes contratantes por volumen
+df_ast.groupby('ENTE CONTRATANTE')['IMP. ADJ. (CON IVA)'].sum().nlargest(10)
+
+# Asturias: contratos menores por órgano
+ast_menores = df_ast[df_ast['CLASIFICACION GENERAL'] == 'MENOR']
+ast_menores['ORGANO CONTRATANTE'].value_counts().head(20)
 ```
 
 ---
@@ -773,6 +826,7 @@ print(f"{n_50} adjudicatarios concentran el 50% del gasto en CM Galicia")
 | `ccaa_madrid_ayuntamiento.py` | datos.madrid.es | Descarga y unifica 67 CSVs (9 categorías, 12 estructuras) |
 | `scripts/ccaa_cataluna_contratosmenores.py` | Socrata | Descarga contratos menores Catalunya |
 | `galicia/scripts/scraper_contratos_galicia.py` | contratosdegalicia.gal | Scraper jQuery DataTables con discovery automático + barrido CM 3 meses |
+| `ccaa_asturias.py` | Principado de Asturias | Descarga contratación centralizada Asturias |
 | `scripts/ccaa_catalunya.py` | Socrata | Descarga datos Catalunya |
 | `scripts/ccaa_valencia.py` | CKAN | Descarga datos Valencia |
 | `ted/ted_module.py` | TED | Descarga CSV bulk + API v3 eForms |
@@ -799,6 +853,7 @@ print(f"{n_50} adjudicatarios concentran el 50% del gasto en CM Galicia")
 | Catalunya | Variable (depende del dataset) |
 | Valencia | Diaria/Mensual (depende del dataset) |
 | Galicia | Trimestral (re-ejecutar scraper, ~8h) |
+| Asturias | Anual (nuevos datasets por año) |
 | BORME | Trimestral (re-ejecutar scraper + parser + anonymize) |
 
 ---
@@ -817,6 +872,7 @@ Datos públicos del Gobierno de España, Unión Europea y CCAA.
 
 - España: [Licencia de Reutilización](https://datos.gob.es/es/aviso-legal)
 - Galicia: [Ley 1/2016 de transparencia y buen gobierno de Galicia](https://www.contratosdegalicia.gal)
+- Asturias: [Portal de Transparencia del Principado de Asturias](https://sede.asturias.es/)
 - TED: [EU Open Data Licence](https://data.europa.eu/eli/dec_impl/2011/833/oj)
 - BORME: [Condiciones de Reutilización BOE](https://www.boe.es/informacion/aviso_legal/index.php#reutilizacion) — Fuente: Agencia Estatal Boletín Oficial del Estado
 
@@ -839,6 +895,7 @@ Datos públicos del Gobierno de España, Unión Europea y CCAA.
 | Catalunya | https://analisi.transparenciacatalunya.cat/ |
 | Valencia | https://dadesobertes.gva.es/ |
 | Galicia | https://www.contratosdegalicia.gal/ |
+| Asturias | https://sede.asturias.es/ |
 | BORME | https://www.boe.es/diario_borme/ |
 | BQuant Finance | https://bquantfinance.com |
 
@@ -850,6 +907,7 @@ Datos públicos del Gobierno de España, Unión Europea y CCAA.
 - [x] Andalucía ✅
 - [x] Madrid ✅
 - [x] Galicia ✅
+- [x] Asturias ✅
 - [ ] Castilla y León
 
 ---
