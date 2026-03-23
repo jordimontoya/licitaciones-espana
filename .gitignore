@@ -20,3 +20,6 @@ Thumbs.db
 # Temp
 *.tmp
 *.log
+
+# Runtime cache
+ccaa_Andalucia/perfiles_cache.json
